@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Synonym Mind Map Generator</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    body {
+      font-family: 'Segoe UI', Arial, sans-serif;
+      background: #e9ecf0;
+      margin: 0;
+      padding: 0;
+    }
+    .container {
+      max-width: 900px;
+      margin: 40px auto;
+      background: #fff;
+      border-radius: 18px;
+      box-shadow: 0 4px 18px rgba(0,0,0,0.08);
+      padding: 32px 22px 42px 22px;
+    }
+    h1 {
+      text-align: center;
+      color: #42416e;
+      margin-bottom: 18px;
+      font-size: 2.1rem;
+      letter-spacing: 1px;
+    }
+    .inputRow {
+      display: flex;
+      justify-content: center;
+      gap: 14px;
+      margin-bottom: 28px;
+      flex-wrap: wrap;
+    }
+    #wordInput {
+      padding: 11px 13px;
+      font-size: 1.1rem;
+      min-width: 180px;
+      border-radius: 7px;
+      border: 1px solid #b7c2d8;
+      outline: none;
+    }
+    #generateBtn {
+      background: #ffe08a;
+      color: #47473e;
+      font-weight: 600;
+      padding: 13px 30px;
+      border: none;
+      border-radius: 10px;
+      font-size: 1.1rem;
+      cursor: pointer;
+      box-shadow: 0 2px 7px rgba(0,0,0,0.04);
+      transition: background 0.2s;
+    }
+    #generateBtn:active {
+      background: #ffda53;
+    }
+    #mindMapArea {
+      position: relative;
+      width: 100%;
+      min-height: 540px;
+      margin: 0 auto;
+      margin-top: 15px;
+    }
+    .center-word {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      background: #f8e99d;
+      color: #39392b;
+      font-weight: bold;
+      border-radius: 30px;
+      box-shadow: 0 6px 20px #ece5b9;
+      font-size: 1.28rem;
+      padding: 18px 34px;
+      transform: translate(-50%,-50%);
+      text-align: center;
+      z-index: 2;
+    }
+    .synonym-node {
+      position: absolute;
+      width: 210px;
+      background: #fff;
+      border-radius: 20px;
+      box-shadow: 0 3px 20px rgba(64,106,197,0.06);
+      padding: 16px 16px 11px 16px;
+      text-align: center;
+      z-index: 1;
+      transition: box-shadow 0.18s;
+    }
+    .synonym-label {
+      display: inline-block;
+      font-weight: bold;
+      border-radius: 10px;
+      padding: 2px 10px 3px 10px;
+      margin-bottom: 6px;
+      font-size: 1.07rem;
+      cursor: pointer;
+      color: #fff;
+    }
+    .example {
+      font-size: .95rem;
+      margin-top: 5px;
+      color: #54535b;
+      padding: 0 0 4px 0;
+      font-style: italic;
+      border-radius: 6px;
+    }
+    svg {
+      position: absolute;
+      top: 0; left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      z-index: 0;
+    }
+    @media (max-width: 700px) {
+      .container {padding: 8px 1vw;}
+      #mindMapArea { min-height: 460px; }
+      .synonym-node { width: 168px; font-size: .98em;}
+    }
+    @media (max-width: 500px) {
+      #mindMapArea { min-height: 440px;}
+      .center-word { font-size: 1.02rem; padding: 12px 9vw;}
+      .synonym-node { width: 96vw;}
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Synonym Mind Map Generator</h1>
+    <div class="inputRow">
+      <input type="text" id="wordInput" placeholder="Enter a word" maxlength="32" />
+      <button id="generateBtn" style="background:#d8efd2;">GENERATE</button>
+    </div>
+    <div id="mindMapArea"></div>
+  </div>
+  <script>
+    const colorList = [
+      '#8bbbe6', // blue
+      '#aad491', // green
+      '#fecb95', // orange
+      '#edd47c', // yellow
+      '#e89699', // pink
+      '#a8c2a7', // olive/grey
+      '#a7bccc', // dusty blue
+      '#cbbecc', // lavender
+      '#b7e6e1', // teal
+      '#f6dba7', // light yellow
+      '#9ea8ee', // indigo
+      '#e89ca3', // pink/dust
+    ];
+    const exampleTemplates = [
+      'In academic writing, "{syn}" often replaces "{word}" to convey a nuanced idea.',
+      'Scholars frequently use the word "{syn}" as a synonym for "{word}".',
+      'When discussing this concept, "{syn}" can be used instead of "{word}".',
+      'The term "{syn}" aptly captures the meaning of "{word}".',
+      'For a more formal tone, "{syn}" may substitute for "{word}".',
+      'Academic texts may employ "{syn}" to express what "{word}" means.',
+      '"{syn}" is preferred in scholarly articles over "{word}".',
+      '"{syn}" and "{word}" are often used interchangeably in academic discourse.',
+      'You may encounter "{syn}" in place of "{word}" in research papers.',
+      '"{syn}" serves as an academic synonym for "{word}".',
+      'In critical essays, the phrase "{syn}" can reflect the sense of "{word}".',
+      '"{syn}" denotes a similar concept to "{word}" in higher education contexts.'
+    ];
+
+    document.getElementById('generateBtn').addEventListener('click', async () => {
+      const word = document.getElementById('wordInput').value.trim();
+      if (!word) {
+        alert('Please enter a word.');
+        return;
+      }
+      document.getElementById('mindMapArea').innerHTML = `
+        <div style="text-align:center; margin-top:160px; color:#aab;">
+          Generating mind map...
+        </div>
+      `;
+      let synonyms = await fetchSynonyms(word);
+      synonyms = synonyms.filter((w,i,a) => i === a.findIndex(({word:b}) => b.toLowerCase() === w.word.toLowerCase()));
+      if(synonyms.length === 0){
+        document.getElementById('mindMapArea').innerHTML =
+          `<div style="text-align:center; margin-top:140px; color:#a76;">
+             No synonyms found for "<b>${word}</b>".
+          </div>`;
+        return;
+      }
+      synonyms = synonyms.slice(0, 12);
+      drawMindMap(word, synonyms.map(s => s.word));
+    });
+
+    async function fetchSynonyms(word){
+      // Datamuse API provides synonyms via rel_syn
+      try {
+        const res = await fetch('https://api.datamuse.com/words?rel_syn=' + encodeURIComponent(word));
+        return await res.json();
+      } catch(e){
+        return [];
+      }
+    }
+
+    function drawMindMap(mainWord, synonyms){
+      const area = document.getElementById('mindMapArea');
+      area.innerHTML = '';
+      const w = area.offsetWidth, h = Math.max(480, area.offsetHeight);
+
+      // Central Node
+      const center = document.createElement('div');
+      center.className = 'center-word';
+      center.innerText = mainWord;
+      center.style.left = '50%';
+      center.style.top = '50%';
+      area.appendChild(center);
+
+      // Prepare Synonym Nodes in circular fashion
+      const radius = Math.min(w, h)/2 - 120;
+      const cx = w/2, cy = h/2;
+      const angleStep = 2*Math.PI / synonyms.length;
+      const nodes = [];
+      for(let i=0; i<synonyms.length; ++i){
+        const theta = -Math.PI/2 + i*angleStep;
+        const x = cx + Math.cos(theta)*radius;
+        const y = cy + Math.sin(theta)*radius;
+        const node = document.createElement('div');
+        node.className = 'synonym-node';
+        node.style.left = (x-105) + 'px';
+        node.style.top = (y-42) + 'px';
+        // label
+        const label = document.createElement('span');
+        label.className = 'synonym-label';
+        label.style.background = colorList[i%colorList.length];
+        label.innerText = synonyms[i];
+        node.appendChild(label);
+        // Example sentence
+        const ex = document.createElement('div');
+        ex.className = 'example';
+        const template = exampleTemplates[i%exampleTemplates.length];
+        ex.innerText = template.replace('{syn}', synonyms[i]).replace('{word}', mainWord);
+        node.appendChild(ex);
+        area.appendChild(node);
+        nodes.push({ x:x, y:y, el:node });
+      }
+      // Draw connecting lines via SVG
+      const svg = document.createElementNS('http://www.w3.org/2000/svg','svg');
+      svg.setAttribute('width', area.offsetWidth);
+      svg.setAttribute('height', area.offsetHeight);
+      area.appendChild(svg);
+      for(const nd of nodes){
+        const x1 = cx, y1 = cy;
+        const x2 = nd.x, y2 = nd.y;
+        const line = document.createElementNS('http://www.w3.org/2000/svg','line');
+        line.setAttribute('x1', x1);
+        line.setAttribute('y1', y1);
+        line.setAttribute('x2', x2);
+        line.setAttribute('y2', y2);
+        line.setAttribute('stroke', '#bbb');
+        line.setAttribute('stroke-width', '3');
+        svg.appendChild(line);
+      }
+    }
+  </script>
+</body>
+</html>
